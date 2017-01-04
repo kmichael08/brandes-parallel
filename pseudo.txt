@@ -1,0 +1,115 @@
+for each v : V // initial values of betweenness
+   BC[v] = 0; for each s : V { // in parallel
+   S = stack();
+   for all w in V {
+      P[w] = list(); // init predecessors of w on all the shortest paths 
+from s
+      sigma[w] = 0; // number of the shortesh paths from s to w
+      d[w] = -1; // distance from w to s
+      delta[w] = 0; // betweenness value for w in paths from s
+   }
+   sigma[s] = 1; // from s to s only one path
+   d[s] = 0; // distance from s to s is 0
+   Q = queue(); // FIFO
+   Q.push_back(s);
+   while (!Q.empty()) { // Queue, so it works in a bfs way
+      v = Q.pop_front();
+      S.push(v); // processed vertices go to the stack
+      for each neighbor w of v {
+         if d[w] < 0 { // w not visited yet
+            Q.push_back(w); // w on the queue
+            d[w] = d[v] + 1; // set the distance (bfs way)
+         }
+         if (d[w] == d[v] + 1) { // if w is the 'next' (one farther)
+            sigma[w] += sigma[v]; // all shortest for w are the shortest 
+for v (adding wv edge)
+            P[w].append(v); // w is the predeccessor for w
+         }
+      }
+   }
+   while (!S.empty()) { // p[w], distance and sigma already counted, now 
+we count delta and BC
+                        // stack, so the furthest are processed first
+     w = S.pop(); // take the vertice w
+     for each v in P[w] // all predecessors
+        delta[v] += (sigma[v] / sigma[w])(1 + delta[w]); // sigma[w] 
+represents all shortest paths from w to s
+                                                         // sigma[v] * 
+(1 + delta[w]) represents all shortest paths
+                                                         // from w to s 
+passing through the v
+                                                         // I don't get 
+the numerator of this formula
+     if (w != s)
+        BC[w] += delta[w]; // could be just = ?
+   }
+}
+/**
+ * Ideas and thoughts.
+ * Parallelize it for each node s, separately. Make a function and call 
+for every thread
+ * For each node it works independently.
+ * O(V * E)
+ * What kind of optimization can we add here???
+ *
+ *
+ *
+ *
+ */ for each v : V // initial values of betweenness
+   BC[v] = 0; for each s : V { // in parallel
+   S = stack();
+   for all w in V {
+      P[w] = list(); // init predecessors of w on all the shortest paths 
+from s
+      sigma[w] = 0; // number of the shortesh paths from s to w
+      d[w] = -1; // distance from w to s
+      delta[w] = 0; // betweenness value for w in paths from s
+   }
+   sigma[s] = 1; // from s to s only one path
+   d[s] = 0; // distance from s to s is 0
+   Q = queue(); // FIFO
+   Q.push_back(s);
+   while (!Q.empty()) { // Queue, so it works in a bfs way
+      v = Q.pop_front();
+      S.push(v); // processed vertices go to the stack
+      for each neighbor w of v {
+         if d[w] < 0 { // w not visited yet
+            Q.push_back(w); // w on the queue
+            d[w] = d[v] + 1; // set the distance (bfs way)
+         }
+         if (d[w] == d[v] + 1) { // if w is the 'next' (one farther)
+            sigma[w] += sigma[v]; // all shortest for w are the shortest 
+for v (adding wv edge)
+            P[w].append(v); // w is the predeccessor for w
+         }
+      }
+   }
+   while (!S.empty()) { // p[w], distance and sigma already counted, now 
+we count delta and BC
+                        // stack, so the furthest are processed first
+     w = S.pop(); // take the vertice w
+     for each v in P[w] // all predecessors
+        delta[v] += (sigma[v] / sigma[w])(1 + delta[w]); // sigma[w] 
+represents all shortest paths from w to s
+                                                         // sigma[v] * 
+(1 + delta[w]) represents all shortest paths
+                                                         // from w to s 
+passing through the v
+                                                         // I don't get 
+the numerator of this formula
+     if (w != s)
+        BC[w] += delta[w]; // could be just = ?
+   }
+}
+/**
+ * Ideas and thoughts.
+ * Parallelize it for each node s, separately. Make a function and call 
+for every thread
+ * For each node it works independently.
+ * O(V * E)
+ * What kind of optimization can we add here???
+ *
+ *
+ *
+ *
+ */
