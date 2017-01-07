@@ -136,23 +136,9 @@ int main(int argc, char* argv[]) {
     input.open(argv[2]);
     output.open(argv[3]);
 
-    // debug for parameters
-    for (int i = 0; i < argc; i++)
-        cout << argv[i] << endl;
-
     take_input(input);
 
-    /**
-    // just debug
-    for (auto it = graph.begin(); it!= graph.end(); it++)
-    {
-        cout << (*it).first << "  ";
-        for (auto inner = (*it).second.begin(); inner != (*it).second.end();
-    inner++)
-        cout << (*inner) << " ";
-        cout << endl;
-    }
-    */
+
 
     print_results(thread_number, output);
 
