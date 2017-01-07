@@ -1,9 +1,13 @@
 \documentclass[]{article}
 \usepackage{polski}
 \usepackage[utf8]{inputenc}
+
 \usepackage[backend=biber, style=authoryear, citestyle=authoryear]{biblatex}
 \addbibresource{raport.bib}
 \setlength\bibitemsep{\baselineskip} % Add space between bibliography entries
+
+\usepackage{pgfplots} 
+\pgfplotsset{width=10cm,compat=1.9} 
 
 
 %opening
@@ -24,7 +28,35 @@
 
 \section{}
 
-\section{}
+\section{Porównanie czasów}
+
+\begin{tikzpicture}
+\begin{axis}[
+    title={Execution time dependence on the number of threads},
+    xlabel={Threads number},
+    ylabel={Execution time[s]},
+    xmin=0, xmax=8,
+    ymin=0, ymax=60,
+    xtick={0,1, 2, 3, 4, 5, 6, 7, 8},
+    ytick={0,20,40,60,80,100,120},
+    legend pos=north west,
+    ymajorgrids=true,
+    grid style=dashed,
+]
+ 
+\addplot[
+    color=blue,
+    mark=square,
+    ]
+    coordinates {
+    (1, 46)(2,23.5)(3, 21)(4, 19)(5, 20)(6, 20)(7, 20)(8, 20)
+    };
+    \legend{Brandes algorithm}
+ 
+\end{axis}
+\end{tikzpicture}
+
+
 
 
 \nocite{*}
