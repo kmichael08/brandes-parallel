@@ -6,14 +6,18 @@
 #include <stack>
 #include <queue>
 #include <set>
+#include <thread>
+#include <mutex>
 
 using namespace std;
 typedef unordered_map <int, int> MAPII;
 typedef unordered_map <int, vector<int>> MAPIV;
-typedef unordered_map <int, float> MAPIF;
+typedef unordered_map <int, double> MAPID;
 
 MAPIV graph;
 vector<int> vertices;
+vector<int> keys;
+mutex mut;
 
 void process_neighbour(const int w, const int v, MAPII& dist, queue<int>& Q, MAPII& sigma, MAPIV& P) {
     if (dist[w] < 0) { // w not visited yet
@@ -27,11 +31,11 @@ void process_neighbour(const int w, const int v, MAPII& dist, queue<int>& Q, MAP
     }
 }
 
-void node_processing(int node, MAPIF& BC) {
+void node_processing(int node, MAPID& BC) {
     stack<int> S;
     MAPIV P; // predecessors of w on all the shortest paths from s
     MAPII dist;  // distance from w to s
-    MAPIF delta; // // betweenness value for w in paths from s
+    MAPID delta; // // betweenness value for w in paths from s
     MAPII sigma; //number of the shortesh paths from s to w
 
     for (int w : vertices) {
@@ -59,36 +63,51 @@ void node_processing(int node, MAPIF& BC) {
         S.pop();
 
         for (int pred : P[w])
-            delta[pred] += (sigma[pred] / sigma[w]) * (1 + delta[w]);
+            delta[pred] += (double(sigma[pred]) / double(sigma[w])) * (1 + delta[w]);
 
-        if(w != node)
+        if(w != node) {
+            mut.lock();
             BC[w] += delta[w];
+            mut.unlock();
+        }
     }
 
 }
 
-// TODO parallelize nodeBetweenness calls
-vector<pair<int, float> > betweenness() {
-    vector<pair<int, float> > result;
-    MAPIF BC;
-
-    for (int node : vertices)
+void multi_node_processing(vector<int>& node_vec, MAPID& BC) {
+    for (auto node : node_vec)
         node_processing(node, BC);
-
-    for (auto entry : BC)
-        result.push_back(entry);
-
-    sort(result.begin(), result.end());
-    return result;
 }
 
-void print_results() {
-    vector<pair<int, float> > result = betweenness();
+MAPID betweenness(int thread_number, vector<thread>& threads) {
+    MAPID BC;
 
-    for (auto res : result) {
-        if (graph[res.first].size()) // print only nodes with out degree > 0
-            cout << res.first << " " << res.second << endl;
+    vector<vector<int> > tasks(thread_number);
+
+    int th = 0;
+    for (int node : vertices) {
+        tasks[th].push_back(node);
+        th = (th + 1) % thread_number;
     }
+
+
+    for (int i = 0; i < thread_number; i++)
+        threads[i] = thread{[i, &tasks, &BC]{multi_node_processing(tasks[i], BC);}};
+
+    for (int i = 0; i < thread_number; i++)
+        threads[i].join();
+
+    return BC;
+}
+
+void print_results(int thread_number, ofstream& output) {
+    vector<thread> threads(thread_number);
+    MAPID BC = betweenness(thread_number, threads);
+
+    sort (keys.begin(), keys.end());
+
+    for (auto node : keys)
+        output << node << " " << BC[node] << endl;
 
 }
 
@@ -103,12 +122,15 @@ void take_input(ifstream& input) {
     }
 
     vertices.assign(vertSet.begin(), vertSet.end());
-    
+
+    for (auto entry : graph)
+        keys.push_back(entry.first);
+
 }
 
 int main(int argc, char* argv[]) {
 
-    int threadNumber = stoi(argv[1]);
+    int thread_number = stoi(argv[1]);
     ifstream input;
     ofstream output;
     input.open(argv[2]);
@@ -120,6 +142,7 @@ int main(int argc, char* argv[]) {
 
     take_input(input);
 
+    /**
     // just debug
     for (auto it = graph.begin(); it!= graph.end(); it++)
     {
@@ -129,8 +152,9 @@ int main(int argc, char* argv[]) {
         cout << (*inner) << " ";
         cout << endl;
     }
+    */
 
-    print_results();
+    print_results(thread_number, output);
 
     input.close();
     output.close();
