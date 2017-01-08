@@ -36,13 +36,10 @@ void node_processing(int node, MAPID& BC) {
     MAPIV P; // predecessors of w on all the shortest paths from s
     MAPII dist;  // distance from w to s
     MAPID delta; // // betweenness value for w in paths from s
-    MAPII sigma; //number of the shortesh paths from s to w
+    MAPII sigma; //number of the shortest paths from s to w
 
-    for (int w : vertices) {
-        sigma[w] = 0;
-        delta[w] = 0;
+    for (int w : vertices)
         dist[w] = -1;
-    }
 
     sigma[node] = 1;
     dist[node] = 0;
@@ -66,9 +63,8 @@ void node_processing(int node, MAPID& BC) {
             delta[pred] += (double(sigma[pred]) / double(sigma[w])) * (1 + delta[w]);
 
         if(w != node) {
-            mut.lock();
+            lock_guard<mutex> lock(mut); // only one thread can modify the bc map
             BC[w] += delta[w];
-            mut.unlock();
         }
     }
 
@@ -79,7 +75,7 @@ void multi_node_processing(vector<int>& node_vec, MAPID& BC) {
         node_processing(node, BC);
 }
 
-MAPID betweenness(int thread_number, vector<thread>& threads) {
+MAPID betweenness(unsigned thread_number, vector<thread>& threads) {
     MAPID BC;
 
     vector<vector<int> > tasks(thread_number);
@@ -91,20 +87,18 @@ MAPID betweenness(int thread_number, vector<thread>& threads) {
     }
 
 
-    for (int i = 0; i < thread_number; i++)
+    for (unsigned i = 0; i < thread_number; i++)
         threads[i] = thread{[i, &tasks, &BC]{multi_node_processing(tasks[i], BC);}};
 
-    for (int i = 0; i < thread_number; i++)
+    for (unsigned i = 0; i < thread_number; i++)
         threads[i].join();
 
     return BC;
 }
 
-void print_results(int thread_number, ofstream& output) {
+void print_results(unsigned thread_number, ofstream& output) {
     vector<thread> threads(thread_number);
     MAPID BC = betweenness(thread_number, threads);
-
-    sort (keys.begin(), keys.end());
 
     for (auto node : keys)
         output << node << " " << BC[node] << endl;
@@ -113,32 +107,29 @@ void print_results(int thread_number, ofstream& output) {
 
 void take_input(ifstream& input) {
     int a, b;
-    set<int> vertSet;
+    set<int> vertSet; // set of vertices
 
     while (input >> a >> b) {
         graph[a].push_back(b);
+        if (keys.empty() || keys.back() != a)
+            keys.push_back(a);
+
         vertSet.insert(a);
         vertSet.insert(b);
     }
 
     vertices.assign(vertSet.begin(), vertSet.end());
-
-    for (auto entry : graph)
-        keys.push_back(entry.first);
-
 }
 
 int main(int argc, char* argv[]) {
 
-    int thread_number = stoi(argv[1]);
+    unsigned thread_number = unsigned(stoi(argv[1]));
     ifstream input;
     ofstream output;
     input.open(argv[2]);
     output.open(argv[3]);
 
     take_input(input);
-
-
 
     print_results(thread_number, output);
 
