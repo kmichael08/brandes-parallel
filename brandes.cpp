@@ -13,11 +13,13 @@ using namespace std;
 typedef unordered_map <int, int> MAPII;
 typedef unordered_map <int, vector<int>> MAPIV;
 typedef unordered_map <int, double> MAPID;
+queue<int> nodes_to_process;
 
 MAPIV graph;
 vector<int> vertices;
 vector<int> keys;
 mutex mut;
+mutex tasks;
 
 void process_neighbour(const int w, const int v, MAPII& dist, queue<int>& Q, MAPII& sigma, MAPIV& P) {
     if (dist[w] < 0) { // w not visited yet
@@ -70,25 +72,30 @@ void node_processing(int node, MAPID& BC) {
 
 }
 
-void multi_node_processing(vector<int>& node_vec, MAPID& BC) {
-    for (auto node : node_vec)
-        node_processing(node, BC);
+void multi_node_processing(MAPID& BC) {
+    while(true) {
+        int top;
+        {
+            lock_guard<mutex> lock(tasks);
+            if (nodes_to_process.empty())
+                break;
+
+            top = nodes_to_process.front();
+            nodes_to_process.pop();
+        }
+        node_processing(top, BC);
+
+    }
 }
 
 MAPID betweenness(unsigned thread_number, vector<thread>& threads) {
     MAPID BC;
 
-    vector<vector<int> > tasks(thread_number);
-
-    int th = 0;
-    for (int node : vertices) {
-        tasks[th].push_back(node);
-        th = (th + 1) % thread_number;
-    }
-
+    for (int v : vertices)
+        nodes_to_process.push(v);
 
     for (unsigned i = 0; i < thread_number; i++)
-        threads[i] = thread{[i, &tasks, &BC]{multi_node_processing(tasks[i], BC);}};
+        threads[i] = thread{[&BC]{multi_node_processing(BC);}};
 
     for (unsigned i = 0; i < thread_number; i++)
         threads[i].join();
@@ -132,7 +139,7 @@ int main(int argc, char* argv[]) {
     take_input(input);
 
     print_results(thread_number, output);
-
+		
     input.close();
     output.close();
     return 0;
