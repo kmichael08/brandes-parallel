@@ -18,8 +18,7 @@ queue<int> nodes_to_process;
 MAPIV graph;
 vector<int> vertices;
 vector<int> keys;
-mutex mut;
-mutex tasks;
+mutex map_access_mutex, task_schedule_mutex;
 
 void process_neighbour(const int w, const int v, MAPII& dist, queue<int>& Q, MAPII& sigma, MAPIV& P) {
     if (dist[w] < 0) { // w not visited yet
@@ -34,6 +33,7 @@ void process_neighbour(const int w, const int v, MAPII& dist, queue<int>& Q, MAP
 }
 
 void node_processing(int node, MAPID& BC) {
+
     stack<int> S;
     MAPIV P; // predecessors of w on all the shortest paths from s
     MAPII dist;  // distance from w to s
@@ -48,14 +48,19 @@ void node_processing(int node, MAPID& BC) {
     queue<int> Q;
     Q.push(node);
 
+
     while (!Q.empty()) {
         int v = Q.front();
         Q.pop();
         S.push(v);
 
-        for (int neighbour : graph[v])
+        // iterator ensure concurrent reading from the graph map
+        auto neighbours = graph.find(v);
+        if (neighbours != graph.end())
+        for (int neighbour : neighbours->second)
             process_neighbour(neighbour, v, dist, Q, sigma, P);
     }
+
 
     while (!S.empty()) {
         int w = S.top();
@@ -64,10 +69,12 @@ void node_processing(int node, MAPID& BC) {
         for (int pred : P[w])
             delta[pred] += (double(sigma[pred]) / double(sigma[w])) * (1 + delta[w]);
 
-        if(w != node) {
-            lock_guard<mutex> lock(mut); // only one thread can modify the bc map
+        lock_guard<mutex> lock(map_access_mutex); // only one thread can modify the bc map
+
+        if (w != node) {
             BC[w] += delta[w];
         }
+
     }
 
 }
@@ -76,7 +83,7 @@ void multi_node_processing(MAPID& BC) {
     while(true) {
         int top;
         {
-            lock_guard<mutex> lock(tasks);
+            lock_guard<mutex> lock(task_schedule_mutex);
             if (nodes_to_process.empty())
                 break;
 
