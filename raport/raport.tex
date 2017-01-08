@@ -11,30 +11,63 @@
 
 
 %opening
-\title{Parallel Brandes algorithm}
+\title{Współbieżny Algorytm Brandesa}
 \author{Michał Kuźba}
-
 
 \begin{document}
 
 \maketitle
 
-\section{}
+\section{Idea}
+Pośrednictwo wierzchołka w grafie wyrażamy wzorem:
+\[BC(v) = \sum_{s\neq v\neq t \in V}^{} \frac{\sigma_{st}(v)}{\sigma_{st}}\]
+gdzie \(\sigma_{st}\) - liczba najkrótszych ścieżek między s i t,
+a \(sigma_{st}(v)\) - liczba najkrótszych ścieżek między s i t, przechodzących przez v.
+Pośrednictwo wszystkich wierzchołków w sieci można obliczyć przy pomocy algorytmu Brandesa \parencite{brandes:01}, którego złożoność obliczeniowa dla grafu nieważonego wynosi \(O(|V|\cdot|E|)\).
+Ze względu na dużą niezależność przetwarzania wierzchołków algorytm Brandesa, może działać współbieżnie na wielu wątkach.
 
-\parencite{brandes:01}
+\section{Rozwiązanie}
+\subsection{Specyfikacja problemu}
+Input : nieważony graf skierowany, liczba wątków.
+Output: wskaźnik pośrednictwa, dla wszystkich wierzchołków, obliczony przy użyciu zadanej liczby wątków.
+\subsection{Implementacja}
+Zastosowane podejście wzoruje się na idei przedstawionej w \parencite[p. 539-550]{bader:06}. Każdy wątek przetwarza oddzielny wierzchołek pobrany z kolejki oczekujących wierzchołków. Przetwarzanie odbywa się niezależnie, bez współdzielenia danych. Jedynym wyjątkiem jest mapa wskaźników pośrednictwa, która może być modyfikowana przez różne wątki, nawet dla tych samych kluczy. Stąd konieczność zastosowania wykluczania dostępu. W rozwiązaniu operacje na mapie są synchronizowane przy użyciu mutexa. Dynamiczny przydział zadań pobieranych z kolejki także wymusza synchronizację operacji na niej. 
+Alternatywnie można przydzielić statycznie wierzchołki do odpowiednich wątków, co jednak może być wrażliwe na nierównomierny przydział zadań - wierzchołek o dużym stopniu wyjściowym wymaga więcej operacji niż wierzchołek izolowany.
 
-\parencite[p. 539-550]{bader:06}
-\section{}
+W \parencite[p. 539-550]{bader:06} zaproponowano również współbieżne wykonanie obliczeń wewnątrz funkcji przetwarzającej wierzchołek. Dokładniej, wewnątrz części BFS, różne krawędzie wychodzące z wierzchołka mogą być przetwarzane oddzielnie. Podejście to ma jednak kilka wad, które wpływają na jego wydajność:
+\begin{itemize}
+\item konieczność współdzielenia danych - wzajemne wykluczanie 
+\item niewielki koszt pojedynczej operacji 
+\end{itemize}
+Ponadto, w zadaniu liczba wątków jest dokładnie określona, co utrudnia dynamiczny przydział zadań. Ostatecznie powyższe rozwiązanie jest mniej efektywne.
 
-\section{}
+Rozwiązanie autora gwarantuje dobre przyspieszenie wraz z rosnącą liczbą wątków, (patrz sekcja 3), jednak posiada kilka wad:
+\begin{itemize}
+\item Użycie pamięci - przy przetwarzaniu każdego wierzchołka przechowujemy dane liniowe względem rozmiaru sieci - odległości, liczbę najkrótszych ścieżek. Stąd dla dużej liczby równoległych obliczeń, pojawić się mogą problemy z przekroczeniem pamięci.
 
-\section{Porównanie czasów}
+\item Brak współbieżności wewnątrz przetwarzania pojedynczego wierzchołka.
+
+\end{itemize}
+
+problemy, inne podejścia, możliwości
+
+
+\section{Speed-up}
+
+Ze względu na niezależność przetwarzania wierzchołków, co stanowi główną operację całego programu, dla dużych sieci, dostajemy przyspieszenie bliskie liniowemu.
+W przykładzie (rzadki graf, ok. 7,000 wierzchołków i 100,000 krawędzi) speed-up dla liczby wątków od 1 do 8 jest bliski liniowemu.
+Można wyodrębnić kilka przyczyn, dla których przyspieszenie jest niższe niż proporcjonalne do liczby wątków:
+\begin{itemize}
+\item przetwarzanie wierzchołków nie jest jedyną częścią wykonywania programu, tzn. sekwencyjne pozostają: wczytywania i wypisywanie wyników oraz przydzielanie zadań poszczególnym wątkom
+\item koszt synchronizacji mapy rezultatów oraz kolejki wierzchołków do przetworzenia - wykluczanie przy użyciu mutexa
+
+\end{itemize}
 
 \begin{tikzpicture}
 \begin{axis}[
-    title={Execution time dependence on the number of threads},
-    xlabel={Threads number},
-    ylabel={Execution time[s]},
+    title={Czas wykonania w zależności od liczby wątków},
+    xlabel={Liczba wątków},
+    ylabel={Czas wykonania[s]},
     xmin=0, xmax=9,
     ymin=0, ymax=60,
     xtick={0, 1, 2, 3, 4, 5, 6, 7, 8},
@@ -58,9 +91,9 @@
 
 \begin{tikzpicture}
 \begin{axis}[
-title = {Speedup dependence on the number of threads},
-xlabel={Threads number},
-ylabel={Speedup},
+title = {Przyspieszenie w zależności od liczby wątków},
+xlabel={Liczba wątków},
+ylabel={Przyspieszenie},
 xmin=0, xmax=9,
 ymin=0, ymax=8,
 xtick={0, 1, 2, 3, 4, 5, 6, 7, 8},
@@ -75,8 +108,6 @@ coordinates{(1, 1) (2, 1.864) (3, 2.70) (4, 3.57) (5, 4.179)
 \legend{Brandes algorithm}
 \end{axis}
 \end{tikzpicture}
-
-
 
 
 \nocite{*}
